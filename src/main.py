@@ -27,7 +27,7 @@ RENAME = {
 def conectar_bd():
     dados_conexao = (
         "Driver={ODBC Driver 17 for SQL Server};"
-        "Server=Arcappbr002;"
+        "Server=Arcappbr002,1433;"
         "Database=Dir_Mineracao;"
         "UID=dir_mineracao;"
         "PWD=RMib52Qk;"
@@ -647,7 +647,7 @@ def importar_imagem(url):
 
 # ________________VOID MAIN____________________________
 # fazendo o login
-names = ["Lucas Angelo", "Fred Oliveira"]
+names = ["Lucas Angelo", "Frederico Oliveira"]
 usernames = ["langelo", "foliveira"]
 
 credentials = {"usernames":{}}
