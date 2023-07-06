@@ -1,5 +1,7 @@
 import streamlit as st
 from PIL import Image
+import requests
+from io import BytesIO
 import pandas as pd
 import numpy as np
 import pydeck as pdk
@@ -9,7 +11,7 @@ import pickle
 import pyodbc
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
 from streamlit_option_menu import option_menu
-from io import StringIO
+import urllib.request
 
 #Anotação tlvez nescessárias
 #convert(VARCHAR, data_embarque, 103) as 'data_embarque'
@@ -627,6 +629,22 @@ def exibir_itens(tabela, coluna):
     
     return item_ids
 
+def importar_imagem(url):
+    try:
+        # Baixar a imagem a partir da URL
+        with urllib.request.urlopen(url) as resposta:
+            imagem_bytes = resposta.read()
+
+        # Abrir a imagem usando o Pillow
+        imagem = Image.open(BytesIO(imagem_bytes))
+
+        # Exibir a imagem
+        imagem.show()
+        st.sidebar.image(imagem)
+
+    except Exception as e:
+        print("Ocorreu um erro:", e)
+
 # ________________VOID MAIN____________________________
 # fazendo o login
 names = ["Lucas Angelo", "Fred Oliveira"]
@@ -657,8 +675,9 @@ if authentication_status:
     # Configurações da página
     authenticator.logout("Logout", "sidebar")
     st.sidebar.title("Sistema de Gestão de Estoque do Almoxarifado")
-    image = Image.open("images/logoArcadis.png")
-    st.sidebar.image(image)
+    # importar_imagem("https://arcadiso365.sharepoint.com/sites/intranet/SiteAssets/Debble/logo.png")
+
+    # st.sidebar.image(img)
     st.sidebar.title(f"Bem vindo {name}")
 
     # Criar tabela caso não exista
