@@ -15,6 +15,7 @@ import urllib.request
 from db_conection import conectar_bd
 from db_createTables import create_generic_table, create_single_tabel
 from excel_maker import excel_maker
+from report_maker import create_report
 #python -m venv .venv
 #.\.venv\Scripts\Activate.ps1
 #pip freeze > requirements.txt  
@@ -49,14 +50,14 @@ def input_execel():
 
     adicionar = st.button("Adicionar")
     if (adicionar):
-        try:
+        # try:
             connection = conectar_bd()
             cursor = connection.cursor()
 
             #Adicionar o banco no banco via planilha
             planilha = pd.read_excel(uploaded_file1)
             for row in planilha.to_dict(orient="records"):
-                cursor.execute(f"INSERT INTO produtos (id, codigo, nome, quantidade) VALUES (?, ?, ?)",
+                cursor.execute(f"INSERT INTO produtos (codigo, nome, quantidade) VALUES (?, ?, ?)",
                             row['CODIGO'], row['NOME'], row['QUANTIDADE'])
                 connection.commit()
 
@@ -65,8 +66,8 @@ def input_execel():
             cursor.close()
             connection.close()    
 
-        except:
-            st.error("Não foi possivel cadastrar a planilha.")
+        # except:
+        #     st.error("Não foi possivel cadastrar a planilha.")
 
 
 # Função para adicionar um novo item
@@ -80,25 +81,45 @@ def gerar_execel():
 # Função para atualizar um item existente
 def gerar_relatorio():
     st.subheader("Criar um relatório")
-    
+    col1, col2 = st.columns(2)
+    with col1:
+        pessoa = st.text_input("Quem vai gerar o relatório")
+    with col2:
+        data_relatorio = st.date_input("Data do relatório")
+        data_relatorio = data_relatorio.strftime("%d/%m/%Y") 
+
     connection = conectar_bd()
     cursor = connection.cursor()
-    cursor.execute("SELECT id, produto FROM estoque")
-    items = cursor.fetchall()
-    item_ids = [str(item[0]) + ": " + item[1] for item in items]
-    item_id = st.selectbox("Selecione o Item a ser Atualizado", item_ids)
-    produto = st.text_input("Novo nome do Produto")
-    quantidade = st.number_input("Nova Quantidade", min_value=0)
-    if st.button("Atualizar"):
-        item_id = item_id.split(":")[0]
-        cursor.execute(
-            "UPDATE estoque SET produto = ?, quantidade = ? WHERE id = ?",
-            (produto, quantidade, item_id),
-        )
-        connection.commit()
-        cursor.close()
-        connection.close()
-        st.success("Item atualizado com sucesso.")
+
+    query_packing_list = f"SELECT id, codigo, nome, quantidade FROM produtos"
+    data = pd.read_sql(query_packing_list, connection).rename(columns=RENAME["Romaneio"])
+    options_builder = GridOptionsBuilder.from_dataframe(data)
+    
+    options_builder.configure_selection(selection_mode='multiple',use_checkbox=True)
+    grid_options = options_builder.build()
+    grid = AgGrid(data,gridOptions=grid_options,theme="balham")
+    sel_row = grid["selected_rows"]
+    
+
+    query_packing_list = f"SELECT codigo, nome, quantidade FROM produtos"
+    dados_banco = pd.read_sql(query_packing_list, connection)
+
+    query_ultimo_id = "SELECT MAX(id) FROM produtos"
+    id_relatorio = pd.read_sql(query_ultimo_id, connection)
+
+
+    list_quantidades = [3, 4, 5]
+    list_nomes = ["Maçã", "Banana", "Pera"]
+    nova_quantidade = []
+    try:
+        for num, name in zip(list_quantidades, list_nomes):
+            nova_quantidade.append(st.number_input(f"item: {name}", min_value=1, max_value=num))
+    except:
+        st.error("Algum dos seus itens tem quantidade igual a 0. (Não existe mais no estoque)")
+
+    add_requisicao = st.button("Confirmar :smile:")
+    if(add_requisicao):
+        create_report(pessoa, data_relatorio, dados_banco, id_relatorio, nova_quantidade)
 
 
 # Função para remover um item
@@ -661,7 +682,7 @@ if authentication_status:
     operation = ["Exibir Dados", "Adicionar Item"]
 
     paginaSelecionada = st.sidebar.selectbox(
-        "Selecione o Módulo", ["Funcionalidades", "Entrada de Materias", "Cadastro de Local", "Cadastro de Fornecedor", "Dashboards"]
+        "Selecione o Módulo", ["Funcionalidades", "Ferramentas de visualização", "Cadastro de Local", "Cadastro de Fornecedor", "Dashboards"]
     )
     def carregar_dados(read, create, update, delete):
         selected= option_menu(
@@ -705,7 +726,7 @@ if authentication_status:
         if selected== "Gerar Relatório":
             gerar_relatorio()
 
-    elif paginaSelecionada == "Entrada de Materias":
+    elif paginaSelecionada == "Ferramentas de visualização":
         carregar_dados(exibir_dados2, adicionar_item2, atualizar_item2, remover_item2)
 
     elif paginaSelecionada == "Cadastro de Local":

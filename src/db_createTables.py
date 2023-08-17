@@ -5,11 +5,13 @@ def create_single_tabel():
     cursor = connection.cursor()
     cursor.execute(
         """
-        IF NOT EXISTS(SELECT * FROM sys.tables WHERE name = 'estoque')
+        IF NOT EXISTS(SELECT * FROM sys.tables WHERE name = 'produtos')
         BEGIN
-            CREATE TABLE estoque (
+            CREATE TABLE produtos (
                 id int IDENTITY(1,1) PRIMARY KEY,
-                produto VARCHAR(20),
+                codigo int,
+                nome VARCHAR(20),
+                quantidade int,
             )
         END
         """
