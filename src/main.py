@@ -14,7 +14,7 @@ from streamlit_option_menu import option_menu
 import urllib.request
 from db_conection import conectar_bd
 from db_createTables import create_generic_table, create_single_tabel
-
+from excel_maker import excel_maker
 #python -m venv .venv
 #.\.venv\Scripts\Activate.ps1
 #pip freeze > requirements.txt  
@@ -44,65 +44,43 @@ st.set_page_config(
 )
 
 # Função para exibir os dados
-def exibir_dados():
-    connection = conectar_bd()
-    query = "SELECT produto, quantidade FROM estoque"
-    data = pd.read_sql(query, connection).rename(columns=RENAME["Estoque"])
-    st.subheader("Dados do Estoque")
-    st.table(data)
-    connection.close()
+def input_execel():
+    uploaded_file1 = st.file_uploader("Coloque o arquivo aqui.", type = ['xlsx', 'xlsm'])
+
+    adicionar = st.button("Adicionar")
+    if (adicionar):
+        try:
+            connection = conectar_bd()
+            cursor = connection.cursor()
+
+            #Adicionar o banco no banco via planilha
+            planilha = pd.read_excel(uploaded_file1)
+            for row in planilha.to_dict(orient="records"):
+                cursor.execute(f"INSERT INTO produtos (id, codigo, nome, quantidade) VALUES (?, ?, ?)",
+                            row['CODIGO'], row['NOME'], row['QUANTIDADE'])
+                connection.commit()
+
+            st.success("Produto adicionada com sucesso.")
+
+            cursor.close()
+            connection.close()    
+
+        except:
+            st.error("Não foi possivel cadastrar a planilha.")
 
 
 # Função para adicionar um novo item
-def adicionar_item():
-    select_tipo = st.selectbox("Tipos de Recebimento", ["LM's", "Equipamentos", "Estrutura Metálica"])
-    if(select_tipo == "LM's"):
-        st.subheader("Adicionar LM's")
-        produto = st.text_input("Nome do Produto")
-        quantidade = st.number_input("Quantidade", min_value=0)
-
-        if st.button("Adicionar"):
-            connection = conectar_bd()
-            cursor = connection.cursor()
-            cursor.execute(
-                '''INSERT INTO estoque (produto, quantidade) VALUES (?, ?)''',
-                (produto, quantidade),
-            )
-            connection.commit()
-            cursor.close()
-            connection.close()
-            st.success("Item adicionado com sucesso.")
-
-    if(select_tipo == "Equipamentos"):
-        st.subheader("Adicionar Equipamentos")
-        produto = st.text_input("Nome do Produto")
-        quantidade = st.number_input("Quantidade", min_value=0)
-        uploaded_file = st.file_uploader("Packing List")
-        if uploaded_file is not None :
-            planilha = pd.read_excel(uploaded_file)
-            for row in planilha.to_dict(orient="records"):
-                print("AQUIIIIIIIIIIIII!!!!!!!!!!!!!!")
-                print(row)
-                cursor.execute(f"INSERT INTO mercado (produto, quantidade, valor) VALUES (?, ?, ?)",
-                            row['Produto'], row['quantidade'], row['preço'])
-                connection.commit()
-
-        if st.button("Adicionar"):
-            connection = conectar_bd()
-            cursor = connection.cursor()
-            cursor.execute(
-                '''INSERT INTO estoque (produto, quantidade) VALUES (?, ?)''',
-                (produto, quantidade),
-            )
-            connection.commit()
-            cursor.close()
-            connection.close()
-            st.success("Item adicionado com sucesso.")
+def gerar_execel():
+    st.subheader("Planilha para input")
+    st.text("Ao clicar no butão abaixo, será feita um download de um planilha exemplo para input dos dados.")
+    excel_maker()
+    
 
 
 # Função para atualizar um item existente
-def atualizar_item():
-    st.subheader("Atualizar Item")
+def gerar_relatorio():
+    st.subheader("Criar um relatório")
+    
     connection = conectar_bd()
     cursor = connection.cursor()
     cursor.execute("SELECT id, produto FROM estoque")
@@ -683,7 +661,7 @@ if authentication_status:
     operation = ["Exibir Dados", "Adicionar Item"]
 
     paginaSelecionada = st.sidebar.selectbox(
-        "Selecione o Módulo", ["Saída de Materias", "Entrada de Materias", "Cadastro de Local", "Cadastro de Fornecedor", "Dashboards"]
+        "Selecione o Módulo", ["Funcionalidades", "Entrada de Materias", "Cadastro de Local", "Cadastro de Fornecedor", "Dashboards"]
     )
     def carregar_dados(read, create, update, delete):
         selected= option_menu(
@@ -708,8 +686,24 @@ if authentication_status:
             delete()
 
 
-    if paginaSelecionada == "Saída de Materias":
-        carregar_dados(exibir_dados, adicionar_item, atualizar_item, remover_item)
+    if paginaSelecionada == "Funcionalidades":
+        selected= option_menu(
+            menu_title = None,
+            options = ["Input por Excel", "Gerar Excel", "Gerar Relatório"],
+            icons = ["pencil-square", "book"],
+            menu_icon = "cast",
+            default_index = 0,
+            orientation = "horizontal",
+        )
+
+        if selected== "Input por Excel":
+            input_execel()
+
+        if selected== "Gerar Excel":
+            gerar_execel()
+
+        if selected== "Gerar Relatório":
+            gerar_relatorio()
 
     elif paginaSelecionada == "Entrada de Materias":
         carregar_dados(exibir_dados2, adicionar_item2, atualizar_item2, remover_item2)
