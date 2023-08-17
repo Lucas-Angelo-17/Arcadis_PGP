@@ -12,46 +12,24 @@ import pyodbc
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
 from streamlit_option_menu import option_menu
 import urllib.request
+from db_conection import conectar_bd
+from db_createTables import create_generic_table, create_single_tabel
+
+#python -m venv .venv
+#.\.venv\Scripts\Activate.ps1
+#pip freeze > requirements.txt  
+#pip install micropip==0.3.0 
+#npm run dump streamlit_app -- -r .\requirements.txt
 
 #Anotação tlvez nescessárias
 #convert(VARCHAR, data_embarque, 103) as 'data_embarque'
+
 RENAME = {
     "Estoque": {"produto":"Produto", "quantidade":"Quantidade"},
     "Romaneio": {"item":"Item","fornecedor":"Fornecedor","pedido_compra":"Pedido de Compra","TAG":"TAG","num_NF":"Numero da Nota Fiscal","num_desenho":"Número do desenho","quantidade":"Quantidade","num_volume_eq":"Numero do Volume","local":"Local", "desc_es":"Descrição (Estrutura Metálica)", "desc_material":"Descrição do Material", "area":"Área", "peso":"Peso"},
     "Local": {"titulo_local":"Título do Local", "status":"Status", "data_utilizacao": "Data de Utilização", "espaco_faltante":"Espaço Faltante"},
     "Fornecedor": {"nome_fornecedor":"Nome do Fornecedor", "num_fornecedor":"Número do Fornecedor"},
 }
-
-
-# Conectar ao banco de dados MySQL
-def conectar_bd():
-    dados_conexao = (
-        "Driver={ODBC Driver 17 for SQL Server};"
-        "Server=Arcappbr002,1433;"
-        "Database=Dir_Mineracao;"
-        "UID=dir_mineracao;"
-        "PWD=RMib52Qk;"
-        # "Trusted_Connection=yes;"
-    )
-    connection = pyodbc.connect(
-        dados_conexao
-    )
-    return connection
-
-def criar_tabelaAll(tabela, createTable):
-    connection = conectar_bd()
-    cursor = connection.cursor()
-    cursor.execute(
-        f"""
-        IF NOT EXISTS(SELECT * FROM sys.tables WHERE name = '{tabela}')
-        BEGIN
-            {createTable}
-        END
-        """
-    )
-    connection.commit()
-    cursor.close()
-    connection.close()
 
 st.set_page_config(
     page_title="SGA Arcadis",
@@ -646,20 +624,31 @@ def importar_imagem(url):
         print("Ocorreu um erro:", e)
 
 # ________________VOID MAIN____________________________
+
+conectar_bd()
+
+
 # fazendo o login
 names = ["Lucas Angelo", "Frederico Oliveira"]
 usernames = ["langelo", "foliveira"]
 
 credentials = {"usernames":{}}
-#cripto grafando a senha
+
+# Abrindo um arquivo chamado "hashed_pw.pkl" no mesmo diretório deste script em modo de leitura binária
 file_path = Path(__file__).parent / "hashed_pw.pkl"
 with file_path.open("rb") as file:
+    # Carregando senhas criptografadas a partir do arquivo usando o módulo 'pickle'
     hashed_passwords = pickle.load(file)
-#compactando as senhas na credentials
-for un, name, pw in zip(usernames, names, hashed_passwords):
-    user_dict = {"name":name,"password":pw}
-    credentials["usernames"].update({un:user_dict})
 
+# Compilando as senhas e nomes de usuário no dicionário 'credentials'
+for un, name, pw in zip(usernames, names, hashed_passwords):
+    # Criando um dicionário contendo nome e senha criptografada
+    user_dict = {"name": name, "password": pw}
+    # Adicionando o dicionário de usuário ao dicionário de credenciais usando o nome de usuário como chave
+    credentials["usernames"].update({un: user_dict})
+
+
+# Criando um objeto Authenticator para autenticação com base nas credenciais e outras informações
 authenticator = stauth.Authenticate(credentials, "sales_dashboard", "abcdef", cookie_expiry_days=30)
 
 name, authentication_status, username = authenticator.login("Login", "main")
@@ -672,22 +661,23 @@ if authentication_status == None:
 
 if authentication_status:
 
+    # Criar tabela caso não exista
+
+    create_single_tabel()
+
+    create_generic_table("romaneio", "CREATE TABLE romaneio (id int IDENTITY(1,1) PRIMARY KEY,categoria INT NOT NULL CHECK (categoria IN (1, 2, 3)),num_NF INT,item VARCHAR(255),fornecedor VARCHAR(255),pedido_compra VARCHAR(255),num_desenho INT,desc_material TEXT,desc_es TEXT,area VARCHAR(255),TAG VARCHAR(255),quantidade INT,peso INT,local VARCHAR(255))")
+    create_generic_table("Local", "CREATE TABLE Local (id int IDENTITY(1,1) PRIMARY KEY,titulo_local VARCHAR(255),status VARCHAR(255),data_utilizacao DATE,espaco_faltante INT)")
+    create_generic_table("Fornecedor", "CREATE TABLE Fornecedor (id int IDENTITY(1,1) PRIMARY KEY,nome_fornecedor VARCHAR(255),num_fornecedor INT)")
+    create_generic_table("Colaborador", "CREATE TABLE Colaborador (id int IDENTITY(1,1) PRIMARY KEY,nome_colaborador VARCHAR(255),num_colaborador INT)")
+    create_generic_table("packing_list", "CREATE TABLE packing_list (id int IDENTITY(1,1) PRIMARY KEY,num_NF INT, num_volume_eq INT,codigo VARCHAR(255),desc_material TEXT,quantidade INT,tipo_embalagem VARCHAR(255),peso INT,local VARCHAR(255))")
+ 
+
     # Configurações da página
     authenticator.logout("Logout", "sidebar")
     st.sidebar.title("Sistema de Gestão de Estoque do Almoxarifado")
-    # importar_imagem("https://arcadiso365.sharepoint.com/sites/intranet/SiteAssets/Debble/logo.png")
 
     # st.sidebar.image(img)
     st.sidebar.title(f"Bem vindo {name}")
-
-    # Criar tabela caso não exista
-    criar_tabelaAll("estoque", "CREATE TABLE estoque (id int IDENTITY(1,1) PRIMARY KEY,produto VARCHAR(255),quantidade int)")
-    criar_tabelaAll("romaneio", "CREATE TABLE romaneio (id int IDENTITY(1,1) PRIMARY KEY,categoria INT NOT NULL CHECK (categoria IN (1, 2, 3)),num_NF INT,item VARCHAR(255),fornecedor VARCHAR(255),pedido_compra VARCHAR(255),num_desenho INT,desc_material TEXT,desc_es TEXT,area VARCHAR(255),TAG VARCHAR(255),quantidade INT,peso INT,local VARCHAR(255))")
-    criar_tabelaAll("Local", "CREATE TABLE Local (id int IDENTITY(1,1) PRIMARY KEY,titulo_local VARCHAR(255),status VARCHAR(255),data_utilizacao DATE,espaco_faltante INT)")
-    criar_tabelaAll("Fornecedor", "CREATE TABLE Fornecedor (id int IDENTITY(1,1) PRIMARY KEY,nome_fornecedor VARCHAR(255),num_fornecedor INT)")
-    criar_tabelaAll("Colaborador", "CREATE TABLE Colaborador (id int IDENTITY(1,1) PRIMARY KEY,nome_colaborador VARCHAR(255),num_colaborador INT)")
-    criar_tabelaAll("packing_list", "CREATE TABLE packing_list (id int IDENTITY(1,1) PRIMARY KEY,num_NF INT, num_volume_eq INT,codigo VARCHAR(255),desc_material TEXT,quantidade INT,tipo_embalagem VARCHAR(255),peso INT,local VARCHAR(255))")
- 
     # Barra de navegação
     menu = ["Exibir Dados", "Adicionar Item", "Atualizar Item", "Remover Item"]
     operation = ["Exibir Dados", "Adicionar Item"]
